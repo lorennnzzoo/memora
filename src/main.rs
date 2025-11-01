@@ -22,6 +22,15 @@ struct Record {
     data: HashMap<String, String>,
 }
 
+impl Record {
+    fn new(key_type: key_type, value_type: value_type) -> Record {
+        Record {
+            key_type,
+            value_type,
+            data: HashMap::new(),
+        }
+    }
+}
 struct Database {
     records: HashMap<String, Record>,
 }
@@ -84,78 +93,98 @@ fn main() {
     }
 }
 
-fn process_command(command_items: Vec<&str>, database: &Database) {
+fn process_command(command_items: Vec<&str>, database: &mut Database) {
     match command_items[0] {
         CREATE => {
-            if command_items.len() != 9 {
-                println!("Please enter a valid command");
-            } else {
-                if command_items[1].to_lowercase() != "record" {
-                    println!("missing \"record\" keyword");
-                } else {
-                    if database.records.contains_key(command_items[2]) {
-                        println!("record \"{}\" already exists", command_items[2]);
-                    } else {
-                        if command_items[3].to_lowercase() != "with" {
-                            println!("missing \"with\" keyword")
-                        } else {
-                            if command_items[4].to_lowercase() != "key" {
-                                println!("missing \"key\" keyword")
-                            } else {
-                                match command_items[5].to_uppercase().trim() {
-                                    "INT" => {
-                                        if command_items[6].to_lowercase() != "and" {
-                                            println!("missing \"and\" keyword");
-                                        } else {
-                                            if command_items[7].to_lowercase() != "value" {
-                                                println!("missing \"value\" keyword");
-                                            } else {
-                                                match command_items[8].to_uppercase().trim() {
-                                                    "INT" => {}
-                                                    "STRING" => {}
-                                                    "DECIMAL" => {}
-                                                    "DATETIME" => {}
-                                                    _ => println!(
-                                                        "Invalid value type {} please use : INT/STRING/DECIMAL/DATETIME",
-                                                        command_items[8]
-                                                    ),
-                                                }
-                                            }
-                                        }
-                                    }
-                                    "STRING" => {
-                                        if command_items[6].to_lowercase() != "and" {
-                                            println!("missing \"and\" keyword");
-                                        } else {
-                                            if command_items[7].to_lowercase() != "key" {
-                                                println!("missing \"value\" keyword");
-                                            } else {
-                                                match command_items[8].to_uppercase().trim() {
-                                                    "INT" => {}
-                                                    "STRING" => {}
-                                                    "DECIMAL" => {}
-                                                    "DATETIME" => {}
-                                                    _ => println!(
-                                                        "Invalid value type {} please use : INT/STRING/DECIMAL/DATETIME",
-                                                        command_items[8]
-                                                    ),
-                                                }
-                                            }
-                                        }
-                                    }
-                                    _ => println!(
-                                        "Invalid key type {} please use : INT/STRING",
-                                        command_items[5]
-                                    ),
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            process_create_command(command_items, database);
         }
         SET => {}
         INSERT => {}
         _ => println!("Invalid Operation : {}", command_items[0]),
+    }
+}
+fn process_create_command(command_items: Vec<&str>, database: &mut Database) {
+    if command_items.len() != 9 {
+        println!("Please enter a valid command");
+    } else {
+        if command_items[1].to_lowercase() != "record" {
+            println!("missing \"record\" keyword");
+        } else {
+            let record_name = command_items[2];
+            if database.records.contains_key(command_items[2]) {
+                println!("record \"{}\" already exists", command_items[2]);
+            } else {
+                if command_items[3].to_lowercase() != "with" {
+                    println!("missing \"with\" keyword")
+                } else {
+                    process_key_validations(command_items, &record_name, database);
+                }
+            }
+        }
+    }
+}
+fn process_key_validations(command_items: Vec<&str>, record_name: &str, database: &mut Database) {
+    if command_items[4].to_lowercase() != "key" {
+        println!("missing \"key\" keyword")
+    } else {
+        match command_items[5].to_uppercase().trim() {
+            "INT" => {
+                process_value_validations_and_create_record(
+                    command_items,
+                    key_type::INT,
+                    record_name,
+                    database,
+                );
+            }
+            "STRING" => {
+                process_value_validations_and_create_record(
+                    command_items,
+                    key_type::STRING,
+                    record_name,
+                    database,
+                );
+            }
+            _ => println!(
+                "Invalid key type {} please use : INT/STRING",
+                command_items[5]
+            ),
+        }
+    }
+}
+
+fn process_value_validations_and_create_record(
+    command_items: Vec<&str>,
+    key_type: key_type,
+    record_name: &str,
+    database: &mut Database,
+) {
+    if command_items[6].to_lowercase() != "and" {
+        println!("missing \"and\" keyword");
+    } else {
+        if command_items[7].to_lowercase() != "value" {
+            println!("missing \"value\" keyword");
+        } else {
+            let value_type_str = command_items[8].trim().to_uppercase();
+
+            let value_type_enum = match value_type_str.as_str() {
+                "INT" => value_type::INT,
+                "STRING" => value_type::STRING,
+                "DECIMAL" => value_type::DECIMAL,
+                "DATETIME" => value_type::DATETIME,
+                _ => {
+                    println!(
+                        "Invalid value type {}. Please use: INT, STRING, DECIMAL, DATETIME",
+                        command_items[8]
+                    );
+                    return;
+                }
+            };
+
+            database.records.insert(
+                record_name.to_string(),
+                Record::new(key_type, value_type_enum),
+            );
+            println!("Record {} created successfully", record_name);
+        }
     }
 }
