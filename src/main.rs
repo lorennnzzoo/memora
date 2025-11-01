@@ -3,11 +3,14 @@ use std::{collections::HashMap, io, process::exit};
 const CREATE: &str = "create";
 const SET: &str = "set";
 const INSERT: &str = "insert";
+const GET: &str = "get";
+#[derive(Debug)]
 
 enum key_type {
     INT,
     STRING,
 }
+#[derive(Debug)]
 
 enum value_type {
     INT,
@@ -15,11 +18,11 @@ enum value_type {
     DECIMAL,
     DATETIME,
 }
-
+#[derive(Debug)]
 struct Record {
     key_type: key_type,
     value_type: value_type,
-    data: HashMap<String, String>,
+    data: HashMap<String, Option<String>>,
 }
 
 impl Record {
@@ -98,8 +101,11 @@ fn process_command(command_items: Vec<&str>, database: &mut Database) {
         CREATE => {
             process_create_command(command_items, database);
         }
-        SET => {}
+        SET => {
+            process_set_command(command_items, database);
+        }
         INSERT => {}
+        GET => {}
         _ => println!("Invalid Operation : {}", command_items[0]),
     }
 }
@@ -119,6 +125,37 @@ fn process_create_command(command_items: Vec<&str>, database: &mut Database) {
                 } else {
                     process_key_validations(command_items, &record_name, database);
                 }
+            }
+        }
+    }
+}
+fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
+    if command_items.len() != 5 {
+        println!("Please enter a valid command");
+    } else {
+        if command_items[1] != "key" {
+            println!("missing \"key\" keyword");
+        } else {
+            match database.records.get_mut(command_items[4]) {
+                Some(record) => match command_items[2].to_string().parse::<i64>() {
+                    Ok(parsed_value) => {
+                        //set key for record
+                        if record.data.contains_key(command_items[2]) {
+                            println!("key {} already exists", parsed_value)
+                        } else {
+                            record.data.insert(parsed_value.to_string(), None);
+                            println!(
+                                "created key {} in {} successfully",
+                                command_items[2], command_items[4]
+                            );
+                        }
+                    }
+                    Err(_) => println!(
+                        "value {} cannot be parsed to datatype {:?}",
+                        command_items[2], record.key_type
+                    ),
+                },
+                None => println!("record {} does not exist", command_items[4]),
             }
         }
     }
