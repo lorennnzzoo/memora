@@ -54,8 +54,8 @@ impl Database {
     }
 }
 
-struct memora;
-impl memora {
+struct Memora;
+impl Memora {
     fn write_aof(command: String) {
         let command_with_new_line = command + "\n";
         let mut file = OpenOptions::new()
@@ -92,7 +92,7 @@ fn main() {
     );
     println!("Initializing the database....");
     let mut database = Database::new();
-    let aof_content = memora::reload_aof();
+    let aof_content = Memora::reload_aof();
 
     match aof_content {
         Some(content) => {
@@ -318,7 +318,7 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database, is_aof
                                     record.data.insert(parsed_value.to_string(), Vec::new());
 
                                     if is_aof {
-                                        memora::write_aof(command_items.join(" ").to_string());
+                                        Memora::write_aof(command_items.join(" ").to_string());
                                     }
                                     println!(
                                         "created key {} in {} successfully",
@@ -344,7 +344,7 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database, is_aof
                                 } else {
                                     record.data.insert(parsed_value.to_string(), Vec::new());
                                     if is_aof {
-                                        memora::write_aof(command_items.join(" ").to_string());
+                                        Memora::write_aof(command_items.join(" ").to_string());
                                     }
                                     println!(
                                         "created key {} in {} successfully",
@@ -459,7 +459,7 @@ fn process_value_parsing_for_insertion(
                         record,
                     );
                     if is_aof {
-                        memora::write_aof(command_items.join(" ").to_string());
+                        Memora::write_aof(command_items.join(" ").to_string());
                     }
                 }
                 Err(_) => println!(
@@ -475,7 +475,7 @@ fn process_value_parsing_for_insertion(
                         record,
                     );
                     if is_aof {
-                        memora::write_aof(command_items.join(" ").to_string());
+                        Memora::write_aof(command_items.join(" ").to_string());
                     }
                 }
                 Err(_) => println!(
@@ -491,7 +491,7 @@ fn process_value_parsing_for_insertion(
                         record,
                     );
                     if is_aof {
-                        memora::write_aof(command_items.join(" ").to_string());
+                        Memora::write_aof(command_items.join(" ").to_string());
                     }
                 }
                 Err(_) => println!(
@@ -591,7 +591,7 @@ fn process_value_validations_and_create_record(
                 Record::new(key_type, value_type_enum),
             );
             if is_aof {
-                memora::write_aof(command_items.join(" ").to_string());
+                Memora::write_aof(command_items.join(" ").to_string());
             }
             println!("Record {} created successfully", record_name);
         }
