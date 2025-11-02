@@ -6,7 +6,7 @@ const SET: &str = "set";
 const INSERT: &str = "insert";
 const GET: &str = "get";
 const COUNT: &str = "count";
-const PRINT: &str = "prrint";
+const PRINT: &str = "print";
 #[derive(Debug)]
 
 enum KeyType {
