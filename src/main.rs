@@ -5,6 +5,8 @@ const CREATE: &str = "create";
 const SET: &str = "set";
 const INSERT: &str = "insert";
 const GET: &str = "get";
+const COUNT: &str = "count";
+const PRINT: &str = "prrint";
 #[derive(Debug)]
 
 enum KeyType {
@@ -98,7 +100,11 @@ fn main() {
                     1. create record <record_name> with key <key_type> and value <value_type>\n\
                     2. set key <key> in <record_name>\n\
                     3. insert value <value> for key <key> in <record_name>\n\
-                    4. get key <key> from <record_name>"
+                    4. get key <key> from <record_name>\n\
+                    5. count keys of <record_name>\n\
+                    6. count values of <key_name> in <record_name>\n\
+                    7. print keys of <record_name>\n\
+                    8. print values of <key_name> in <record_name>\n"
             );
         } else {
             process_command(command_items, &mut database);
@@ -120,9 +126,108 @@ fn process_command(command_items: Vec<&str>, database: &mut Database) {
         GET => {
             process_get_command(command_items, database);
         }
+        COUNT => {
+            process_count_command(command_items, database);
+        }
+        PRINT => {
+            process_print_command(command_items, database);
+        }
         _ => println!("Invalid Operation : {}", command_items[0]),
     }
 }
+fn process_count_command(command_items: Vec<&str>, database: &Database) {
+    if command_items.len() > 6 || command_items.len() < 4 {
+        println!("Please enter a valid command")
+    } else {
+        match command_items[1].to_uppercase().trim() {
+            "KEYS" => {
+                if command_items[2] != "of" {
+                    println!("missing \"of\" keyword")
+                } else {
+                    match database.records.get(command_items[3]) {
+                        Some(record) => {
+                            println!("{}", record.data.keys().len())
+                        }
+                        None => println!("record {} does not exist", command_items[3]),
+                    }
+                }
+            }
+            "VALUES" => {
+                if command_items[2] != "of" {
+                    println!("missing \"of\" keyword")
+                } else {
+                    if command_items[4] != "in" {
+                        println!("missing \"in\" keyword")
+                    }
+                    match database.records.get(command_items[5]) {
+                        Some(record) => match record.data.get(command_items[3]) {
+                            Some(data) => {
+                                println!("{}", data.len())
+                            }
+                            None => {
+                                println!(
+                                    "key {} does not exist in record {}",
+                                    command_items[3], command_items[5],
+                                )
+                            }
+                        },
+                        None => println!("record {} does not exist", command_items[3]),
+                    }
+                }
+            }
+            _ => {
+                println!("Invalid keyword : {}, Use keys/values", command_items[1])
+            }
+        }
+    }
+}
+fn process_print_command(command_items: Vec<&str>, database: &Database) {
+    if command_items.len() > 6 || command_items.len() < 4 {
+        println!("Please enter a valid command")
+    } else {
+        match command_items[1].to_uppercase().trim() {
+            "KEYS" => {
+                if command_items[2] != "of" {
+                    println!("missing \"of\" keyword")
+                } else {
+                    match database.records.get(command_items[3]) {
+                        Some(record) => {
+                            println!("{:?}", record.data.keys())
+                        }
+                        None => println!("record {} does not exist", command_items[3]),
+                    }
+                }
+            }
+            "VALUES" => {
+                if command_items[2] != "of" {
+                    println!("missing \"of\" keyword")
+                } else {
+                    if command_items[4] != "in" {
+                        println!("missing \"in\" keyword")
+                    }
+                    match database.records.get(command_items[5]) {
+                        Some(record) => match record.data.get(command_items[3]) {
+                            Some(data) => {
+                                println!("{:?}", data)
+                            }
+                            None => {
+                                println!(
+                                    "key {} does not exist in record {}",
+                                    command_items[3], command_items[5],
+                                )
+                            }
+                        },
+                        None => println!("record {} does not exist", command_items[3]),
+                    }
+                }
+            }
+            _ => {
+                println!("Invalid keyword : {}, Use keys/values", command_items[1])
+            }
+        }
+    }
+}
+
 fn process_create_command(command_items: Vec<&str>, database: &mut Database) {
     if command_items.len() != 9 {
         println!("Please enter a valid command");
