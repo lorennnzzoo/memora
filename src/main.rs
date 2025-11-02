@@ -1,6 +1,11 @@
-use std::{collections::HashMap, io, process::exit};
+use std::{
+    collections::HashMap,
+    fs::{File, OpenOptions},
+    io::{self, Read, Write},
+    process::exit,
+};
 // use time::{OffsetDateTime, macros::format_description};
-
+const AOF_FILE: &str = "memora.aof";
 const CREATE: &str = "create";
 const SET: &str = "set";
 const INSERT: &str = "insert";
@@ -49,6 +54,33 @@ impl Database {
     }
 }
 
+struct memora;
+impl memora {
+    fn write_aof(command: String) {
+        let command_with_new_line = command + "\n";
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(AOF_FILE)
+            .expect("Failed to open aof file");
+
+        file.write_all(command_with_new_line.as_bytes())
+            .expect("Failed to write to aof");
+    }
+    fn reload_aof() -> Option<String> {
+        let file = File::open(AOF_FILE);
+
+        match file {
+            Ok(mut file) => {
+                let mut file_content = String::new();
+                file.read_to_string(&mut file_content).unwrap();
+                Some(file_content)
+            }
+            Err(_) => None,
+        }
+    }
+}
+
 // fn parse_datetime(s: &str) -> Result<OffsetDateTime, String> {
 //     let format = format_description!("[year]-[month]-[day]-[hour]:[minute]:[second]");
 //     OffsetDateTime::parse(s, &format).map_err(|e| format!("Invalid datetime '{}': {}", s, e))
@@ -60,6 +92,22 @@ fn main() {
     );
     println!("Initializing the database....");
     let mut database = Database::new();
+    let aof_content = memora::reload_aof();
+
+    match aof_content {
+        Some(content) => {
+            let commands: Vec<&str> = content.lines().collect();
+
+            for command in commands {
+                let parts: Vec<&str> = command.split_whitespace().collect();
+                if !parts.is_empty() {
+                    process_command(parts, &mut database, false);
+                }
+            }
+        }
+        None => {}
+    }
+
     println!("Done Initializing the database");
     loop {
         let mut command = String::new();
@@ -107,21 +155,21 @@ fn main() {
                     8. print values of <key_name> in <record_name>\n"
             );
         } else {
-            process_command(command_items, &mut database);
+            process_command(command_items, &mut database, true);
         }
     }
 }
 
-fn process_command(command_items: Vec<&str>, database: &mut Database) {
+fn process_command(command_items: Vec<&str>, database: &mut Database, is_aof: bool) {
     match command_items[0] {
         CREATE => {
-            process_create_command(command_items, database);
+            process_create_command(command_items, database, is_aof);
         }
         SET => {
-            process_set_command(command_items, database);
+            process_set_command(command_items, database, is_aof);
         }
         INSERT => {
-            process_insert_command(command_items, database);
+            process_insert_command(command_items, database, is_aof);
         }
         GET => {
             process_get_command(command_items, database);
@@ -228,7 +276,7 @@ fn process_print_command(command_items: Vec<&str>, database: &Database) {
     }
 }
 
-fn process_create_command(command_items: Vec<&str>, database: &mut Database) {
+fn process_create_command(command_items: Vec<&str>, database: &mut Database, is_aof: bool) {
     if command_items.len() != 9 {
         println!("Please enter a valid command");
     } else {
@@ -242,13 +290,13 @@ fn process_create_command(command_items: Vec<&str>, database: &mut Database) {
                 if command_items[3].to_lowercase() != "with" {
                     println!("missing \"with\" keyword")
                 } else {
-                    process_key_validations(command_items, &record_name, database);
+                    process_key_validations(command_items, &record_name, database, is_aof);
                 }
             }
         }
     }
 }
-fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
+fn process_set_command(command_items: Vec<&str>, database: &mut Database, is_aof: bool) {
     if command_items.len() != 5 {
         println!("Please enter a valid command");
     } else {
@@ -268,6 +316,10 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
                                     )
                                 } else {
                                     record.data.insert(parsed_value.to_string(), Vec::new());
+
+                                    if is_aof {
+                                        memora::write_aof(command_items.join(" ").to_string());
+                                    }
                                     println!(
                                         "created key {} in {} successfully",
                                         command_items[2], command_items[4]
@@ -291,6 +343,9 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
                                     )
                                 } else {
                                     record.data.insert(parsed_value.to_string(), Vec::new());
+                                    if is_aof {
+                                        memora::write_aof(command_items.join(" ").to_string());
+                                    }
                                     println!(
                                         "created key {} in {} successfully",
                                         command_items[2], command_items[4]
@@ -310,7 +365,7 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
         }
     }
 }
-fn process_insert_command(command_items: Vec<&str>, database: &mut Database) {
+fn process_insert_command(command_items: Vec<&str>, database: &mut Database, is_aof: bool) {
     if command_items.len() != 8 {
         println!("Please enter a valid command");
     } else {
@@ -326,6 +381,7 @@ fn process_insert_command(command_items: Vec<&str>, database: &mut Database) {
                             ValueType::INT,
                             record,
                             value_to_insert,
+                            is_aof,
                         );
                     }
                     ValueType::STRING => {
@@ -334,6 +390,7 @@ fn process_insert_command(command_items: Vec<&str>, database: &mut Database) {
                             ValueType::STRING,
                             record,
                             value_to_insert,
+                            is_aof,
                         );
                     }
                     ValueType::DECIMAL => {
@@ -342,6 +399,7 @@ fn process_insert_command(command_items: Vec<&str>, database: &mut Database) {
                             ValueType::DECIMAL,
                             record,
                             value_to_insert,
+                            is_aof,
                         );
                     }
                     ValueType::DATETIME => {
@@ -350,6 +408,7 @@ fn process_insert_command(command_items: Vec<&str>, database: &mut Database) {
                             ValueType::DATETIME,
                             record,
                             value_to_insert,
+                            is_aof,
                         );
                     }
                 },
@@ -388,37 +447,53 @@ fn process_value_parsing_for_insertion(
     value_type: ValueType,
     record: &mut Record,
     value_to_insert: &str,
+    is_aof: bool,
 ) {
     match record.data.get(command_items[5]) {
         Some(_) => match value_type {
             ValueType::INT => match value_to_insert.parse::<i64>() {
-                Ok(_) => insert_into_record(
-                    command_items[5].to_string(),
-                    value_to_insert.to_string(),
-                    record,
-                ),
+                Ok(_) => {
+                    insert_into_record(
+                        command_items[5].to_string(),
+                        value_to_insert.to_string(),
+                        record,
+                    );
+                    if is_aof {
+                        memora::write_aof(command_items.join(" ").to_string());
+                    }
+                }
                 Err(_) => println!(
                     "value {} cannot be parsed to datatype {:?}",
                     value_to_insert, value_type
                 ),
             },
             ValueType::STRING => match value_to_insert.parse::<String>() {
-                Ok(_) => insert_into_record(
-                    command_items[5].to_string(),
-                    value_to_insert.to_string(),
-                    record,
-                ),
+                Ok(_) => {
+                    insert_into_record(
+                        command_items[5].to_string(),
+                        value_to_insert.to_string(),
+                        record,
+                    );
+                    if is_aof {
+                        memora::write_aof(command_items.join(" ").to_string());
+                    }
+                }
                 Err(_) => println!(
                     "value {} cannot be parsed to datatype {:?}",
                     value_to_insert, value_type
                 ),
             },
             ValueType::DECIMAL => match value_to_insert.parse::<f64>() {
-                Ok(_) => insert_into_record(
-                    command_items[5].to_string(),
-                    value_to_insert.to_string(),
-                    record,
-                ),
+                Ok(_) => {
+                    insert_into_record(
+                        command_items[5].to_string(),
+                        value_to_insert.to_string(),
+                        record,
+                    );
+                    if is_aof {
+                        memora::write_aof(command_items.join(" ").to_string());
+                    }
+                }
                 Err(_) => println!(
                     "value {} cannot be parsed to datatype {:?}",
                     value_to_insert, value_type
@@ -446,7 +521,12 @@ fn insert_into_record(key: String, value: String, record: &mut Record) {
     println!("inserted value successfully")
 }
 
-fn process_key_validations(command_items: Vec<&str>, record_name: &str, database: &mut Database) {
+fn process_key_validations(
+    command_items: Vec<&str>,
+    record_name: &str,
+    database: &mut Database,
+    is_aof: bool,
+) {
     if command_items[4].to_lowercase() != "key" {
         println!("missing \"key\" keyword")
     } else {
@@ -457,6 +537,7 @@ fn process_key_validations(command_items: Vec<&str>, record_name: &str, database
                     KeyType::INT,
                     record_name,
                     database,
+                    is_aof,
                 );
             }
             "STRING" => {
@@ -465,6 +546,7 @@ fn process_key_validations(command_items: Vec<&str>, record_name: &str, database
                     KeyType::STRING,
                     record_name,
                     database,
+                    is_aof,
                 );
             }
             _ => println!(
@@ -480,6 +562,7 @@ fn process_value_validations_and_create_record(
     key_type: KeyType,
     record_name: &str,
     database: &mut Database,
+    is_aof: bool,
 ) {
     if command_items[6].to_lowercase() != "and" {
         println!("missing \"and\" keyword");
@@ -507,6 +590,9 @@ fn process_value_validations_and_create_record(
                 record_name.to_string(),
                 Record::new(key_type, value_type_enum),
             );
+            if is_aof {
+                memora::write_aof(command_items.join(" ").to_string());
+            }
             println!("Record {} created successfully", record_name);
         }
     }
