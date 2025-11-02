@@ -23,7 +23,7 @@ enum ValueType {
 struct Record {
     key_type: KeyType,
     value_type: ValueType,
-    data: HashMap<String, Option<String>>,
+    data: HashMap<String, Vec<String>>,
 }
 
 impl Record {
@@ -94,8 +94,12 @@ fn main() {
             }
         } else if trimmed_command == "--help" {
             println!(
-                "Here are the list of commands you can use\nTo create a record : create record <record_name> with key <key_type> and value <value_type>\nTo set a key in a record : set key <key> in <record_name>\nTo insert values to keys that are set in a record : insert value <value> for key <key> in <record_name>"
-            )
+                "Available commands:\n\
+                    1. create record <record_name> with key <key_type> and value <value_type>\n\
+                    2. set key <key> in <record_name>\n\
+                    3. insert value <value> for key <key> in <record_name>\n\
+                    4. get key <key> from <record_name>"
+            );
         } else {
             process_command(command_items, &mut database);
         }
@@ -113,7 +117,9 @@ fn process_command(command_items: Vec<&str>, database: &mut Database) {
         INSERT => {
             process_insert_command(command_items, database);
         }
-        GET => {}
+        GET => {
+            process_get_command(command_items, database);
+        }
         _ => println!("Invalid Operation : {}", command_items[0]),
     }
 }
@@ -156,7 +162,7 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
                                         parsed_value, command_items[4]
                                     )
                                 } else {
-                                    record.data.insert(parsed_value.to_string(), None);
+                                    record.data.insert(parsed_value.to_string(), Vec::new());
                                     println!(
                                         "created key {} in {} successfully",
                                         command_items[2], command_items[4]
@@ -179,7 +185,7 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
                                         parsed_value, command_items[4]
                                     )
                                 } else {
-                                    record.data.insert(parsed_value.to_string(), None);
+                                    record.data.insert(parsed_value.to_string(), Vec::new());
                                     println!(
                                         "created key {} in {} successfully",
                                         command_items[2], command_items[4]
@@ -249,6 +255,29 @@ fn process_insert_command(command_items: Vec<&str>, database: &mut Database) {
     }
 }
 
+fn process_get_command(command_items: Vec<&str>, database: &Database) {
+    if command_items.len() != 5 {
+        println!("please enter a valid command")
+    } else {
+        if command_items[1] != "key" {
+            println!("missing \"key\" keyword")
+        } else {
+            match database.records.get(command_items[4]) {
+                Some(record) => match record.data.get(command_items[2]) {
+                    Some(data) => {
+                        println!("{:?}", data)
+                    }
+                    None => println!(
+                        "key {} does not exist in record {}",
+                        command_items[2], command_items[4]
+                    ),
+                },
+                None => println!("record {} does not exist", command_items[4]),
+            }
+        }
+    }
+}
+
 fn process_value_parsing_for_insertion(
     command_items: Vec<&str>,
     value_type: ValueType,
@@ -308,10 +337,8 @@ fn process_value_parsing_for_insertion(
 }
 
 fn insert_into_record(key: String, value: String, record: &mut Record) {
-    match record.data.insert(key, Some(value)) {
-        Some(_) => println!("inserted in record successfully"),
-        None => {}
-    }
+    record.data.entry(key.clone()).or_default().push(value);
+    println!("inserted value successfully")
 }
 
 fn process_key_validations(command_items: Vec<&str>, record_name: &str, database: &mut Database) {
