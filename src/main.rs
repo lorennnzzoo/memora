@@ -1,4 +1,5 @@
 use std::{collections::HashMap, io, process::exit};
+// use time::{OffsetDateTime, macros::format_description};
 
 const CREATE: &str = "create";
 const SET: &str = "set";
@@ -6,13 +7,13 @@ const INSERT: &str = "insert";
 const GET: &str = "get";
 #[derive(Debug)]
 
-enum key_type {
+enum KeyType {
     INT,
     STRING,
 }
 #[derive(Debug)]
 
-enum value_type {
+enum ValueType {
     INT,
     STRING,
     DECIMAL,
@@ -20,13 +21,13 @@ enum value_type {
 }
 #[derive(Debug)]
 struct Record {
-    key_type: key_type,
-    value_type: value_type,
+    key_type: KeyType,
+    value_type: ValueType,
     data: HashMap<String, Option<String>>,
 }
 
 impl Record {
-    fn new(key_type: key_type, value_type: value_type) -> Record {
+    fn new(key_type: KeyType, value_type: ValueType) -> Record {
         Record {
             key_type,
             value_type,
@@ -46,9 +47,14 @@ impl Database {
     }
 }
 
+// fn parse_datetime(s: &str) -> Result<OffsetDateTime, String> {
+//     let format = format_description!("[year]-[month]-[day]-[hour]:[minute]:[second]");
+//     OffsetDateTime::parse(s, &format).map_err(|e| format!("Invalid datetime '{}': {}", s, e))
+// }
+
 fn main() {
     println!(
-        "This is memora, a key value in-memory database\nTo know what commands to use run : memora --help\ntype q and Enter to quit"
+        "This is memora, a key value in-memory database\nTo know what commands to use run : --help\ntype q and Enter to quit"
     );
     println!("Initializing the database....");
     let mut database = Database::new();
@@ -104,7 +110,9 @@ fn process_command(command_items: Vec<&str>, database: &mut Database) {
         SET => {
             process_set_command(command_items, database);
         }
-        INSERT => {}
+        INSERT => {
+            process_insert_command(command_items, database);
+        }
         GET => {}
         _ => println!("Invalid Operation : {}", command_items[0]),
     }
@@ -137,29 +145,175 @@ fn process_set_command(command_items: Vec<&str>, database: &mut Database) {
             println!("missing \"key\" keyword");
         } else {
             match database.records.get_mut(command_items[4]) {
-                Some(record) => match command_items[2].to_string().parse::<i64>() {
-                    Ok(parsed_value) => {
-                        //set key for record
-                        if record.data.contains_key(command_items[2]) {
-                            println!("key {} already exists", parsed_value)
-                        } else {
-                            record.data.insert(parsed_value.to_string(), None);
-                            println!(
-                                "created key {} in {} successfully",
-                                command_items[2], command_items[4]
-                            );
+                Some(record) => match record.key_type {
+                    KeyType::INT => {
+                        match command_items[2].to_string().parse::<i64>() {
+                            Ok(parsed_value) => {
+                                //set key for record
+                                if record.data.contains_key(command_items[2]) {
+                                    println!(
+                                        "key {} already exists in {}",
+                                        parsed_value, command_items[4]
+                                    )
+                                } else {
+                                    record.data.insert(parsed_value.to_string(), None);
+                                    println!(
+                                        "created key {} in {} successfully",
+                                        command_items[2], command_items[4]
+                                    );
+                                }
+                            }
+                            Err(_) => println!(
+                                "value {} cannot be parsed to datatype {:?}",
+                                command_items[2], record.key_type
+                            ),
                         }
                     }
-                    Err(_) => println!(
-                        "value {} cannot be parsed to datatype {:?}",
-                        command_items[2], record.key_type
-                    ),
+                    KeyType::STRING => {
+                        match command_items[2].to_string().parse::<String>() {
+                            Ok(parsed_value) => {
+                                //set key for record
+                                if record.data.contains_key(command_items[2]) {
+                                    println!(
+                                        "key {} already exists in {}",
+                                        parsed_value, command_items[4]
+                                    )
+                                } else {
+                                    record.data.insert(parsed_value.to_string(), None);
+                                    println!(
+                                        "created key {} in {} successfully",
+                                        command_items[2], command_items[4]
+                                    );
+                                }
+                            }
+                            Err(_) => println!(
+                                "key {} cannot be parsed to datatype {:?}",
+                                command_items[2], record.key_type
+                            ),
+                        }
+                    }
                 },
+
                 None => println!("record {} does not exist", command_items[4]),
             }
         }
     }
 }
+fn process_insert_command(command_items: Vec<&str>, database: &mut Database) {
+    if command_items.len() != 8 {
+        println!("Please enter a valid command");
+    } else {
+        if command_items[1] != "value" {
+            println!("missing \"value\" keyword")
+        } else {
+            let value_to_insert = command_items[2];
+            match database.records.get_mut(command_items[7]) {
+                Some(record) => match record.value_type {
+                    ValueType::INT => {
+                        process_value_parsing_for_insertion(
+                            command_items,
+                            ValueType::INT,
+                            record,
+                            value_to_insert,
+                        );
+                    }
+                    ValueType::STRING => {
+                        process_value_parsing_for_insertion(
+                            command_items,
+                            ValueType::STRING,
+                            record,
+                            value_to_insert,
+                        );
+                    }
+                    ValueType::DECIMAL => {
+                        process_value_parsing_for_insertion(
+                            command_items,
+                            ValueType::DECIMAL,
+                            record,
+                            value_to_insert,
+                        );
+                    }
+                    ValueType::DATETIME => {
+                        process_value_parsing_for_insertion(
+                            command_items,
+                            ValueType::DATETIME,
+                            record,
+                            value_to_insert,
+                        );
+                    }
+                },
+
+                None => println!("record {} does not exist", command_items[7]),
+            }
+        }
+    }
+}
+
+fn process_value_parsing_for_insertion(
+    command_items: Vec<&str>,
+    value_type: ValueType,
+    record: &mut Record,
+    value_to_insert: &str,
+) {
+    match record.data.get(command_items[5]) {
+        Some(_) => match value_type {
+            ValueType::INT => match value_to_insert.parse::<i64>() {
+                Ok(_) => insert_into_record(
+                    command_items[5].to_string(),
+                    value_to_insert.to_string(),
+                    record,
+                ),
+                Err(_) => println!(
+                    "value {} cannot be parsed to datatype {:?}",
+                    value_to_insert, value_type
+                ),
+            },
+            ValueType::STRING => match value_to_insert.parse::<String>() {
+                Ok(_) => insert_into_record(
+                    command_items[5].to_string(),
+                    value_to_insert.to_string(),
+                    record,
+                ),
+                Err(_) => println!(
+                    "value {} cannot be parsed to datatype {:?}",
+                    value_to_insert, value_type
+                ),
+            },
+            ValueType::DECIMAL => match value_to_insert.parse::<f64>() {
+                Ok(_) => insert_into_record(
+                    command_items[5].to_string(),
+                    value_to_insert.to_string(),
+                    record,
+                ),
+                Err(_) => println!(
+                    "value {} cannot be parsed to datatype {:?}",
+                    value_to_insert, value_type
+                ),
+            },
+            ValueType::DATETIME => {
+                println!("datetime type is still under development")
+            } // match parse_datetime(value_to_insert) {
+              //     Ok(parsed_value) => {}
+              //     Err(err) => println!(
+              //         "value {} cannot be parsed to datatype {:?}\nerror : {}",
+              //         value_to_insert, value_type, err
+              //     ),
+              // },
+        },
+        None => println!(
+            "key {} does not exist in {}",
+            command_items[5], command_items[7]
+        ),
+    }
+}
+
+fn insert_into_record(key: String, value: String, record: &mut Record) {
+    match record.data.insert(key, Some(value)) {
+        Some(_) => println!("inserted in record successfully"),
+        None => {}
+    }
+}
+
 fn process_key_validations(command_items: Vec<&str>, record_name: &str, database: &mut Database) {
     if command_items[4].to_lowercase() != "key" {
         println!("missing \"key\" keyword")
@@ -168,7 +322,7 @@ fn process_key_validations(command_items: Vec<&str>, record_name: &str, database
             "INT" => {
                 process_value_validations_and_create_record(
                     command_items,
-                    key_type::INT,
+                    KeyType::INT,
                     record_name,
                     database,
                 );
@@ -176,7 +330,7 @@ fn process_key_validations(command_items: Vec<&str>, record_name: &str, database
             "STRING" => {
                 process_value_validations_and_create_record(
                     command_items,
-                    key_type::STRING,
+                    KeyType::STRING,
                     record_name,
                     database,
                 );
@@ -191,7 +345,7 @@ fn process_key_validations(command_items: Vec<&str>, record_name: &str, database
 
 fn process_value_validations_and_create_record(
     command_items: Vec<&str>,
-    key_type: key_type,
+    key_type: KeyType,
     record_name: &str,
     database: &mut Database,
 ) {
@@ -204,10 +358,10 @@ fn process_value_validations_and_create_record(
             let value_type_str = command_items[8].trim().to_uppercase();
 
             let value_type_enum = match value_type_str.as_str() {
-                "INT" => value_type::INT,
-                "STRING" => value_type::STRING,
-                "DECIMAL" => value_type::DECIMAL,
-                "DATETIME" => value_type::DATETIME,
+                "INT" => ValueType::INT,
+                "STRING" => ValueType::STRING,
+                "DECIMAL" => ValueType::DECIMAL,
+                "DATETIME" => ValueType::DATETIME,
                 _ => {
                     println!(
                         "Invalid value type {}. Please use: INT, STRING, DECIMAL, DATETIME",
